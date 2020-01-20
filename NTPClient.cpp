@@ -112,6 +112,18 @@ bool NTPClient::forceUpdate() {
   // this is NTP time (seconds since Jan 1 1900):
   unsigned long secsSince1900 = highWord << 16 | lowWord;
 
+  if (this->_fractionalTime) {
+    highWord = word(this->_packetBuffer[44], this->_packetBuffer[45]);
+    lowWord = word(this->_packetBuffer[46], this->_packetBuffer[47]);
+
+    unsigned long fracSecs = highWord << 16 | lowWord;
+
+    // Convert the fractional part into ms
+    this->_fracOffset = (unsigned long)(((double)fracSecs / 4294967295.0) * 1000.0);
+  } else {
+    this->_fracOffset = 0;
+  }
+
   this->_currentEpoc = secsSince1900 - SEVENZYYEARS;
 
   return true;  // return true after successful update
@@ -129,7 +141,7 @@ bool NTPClient::update() {
 unsigned long NTPClient::getEpochTime() const {
   return this->_timeOffset + // User offset
          this->_currentEpoc + // Epoc returned by the NTP server
-         ((millis() - this->_lastUpdate) / 1000); // Time since last update
+         ((this->_fracOffset + millis() - this->_lastUpdate) / 1000); // Time since last update
 }
 
 int NTPClient::getDay() const {
@@ -171,6 +183,10 @@ void NTPClient::setTimeOffset(int timeOffset) {
 
 void NTPClient::setUpdateInterval(unsigned long updateInterval) {
   this->_updateInterval = updateInterval;
+}
+
+void NTPClient::setFractionalTime(bool enable) {
+  this->_fractionalTime = enable;
 }
 
 void NTPClient::setPoolServerName(const char* poolServerName) {

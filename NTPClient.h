@@ -17,11 +17,13 @@ class NTPClient {
     IPAddress     _poolServerIP;
     int           _port           = NTP_DEFAULT_LOCAL_PORT;
     long          _timeOffset     = 0;
+    bool          _fractionalTime = false;
 
     unsigned long _updateInterval = 60000;  // In ms
 
     unsigned long _currentEpoc    = 0;      // In s
     unsigned long _lastUpdate     = 0;      // In ms
+    unsigned long _fracOffset     = 0;      // In ms
 
     byte          _packetBuffer[NTP_PACKET_SIZE];
 
@@ -84,6 +86,12 @@ class NTPClient {
      * timeOffset should not be set in the constructor
      */
     void setUpdateInterval(unsigned long updateInterval);
+
+    /** Enable or disable tracking fractional seconds from the NTP response.
+     * We don't return time with that precision, but we do account for it when
+     * working out what the time now is.
+     */
+    void setFractionalTime(bool enable);
 
     /**
      * @return time formatted like `hh:mm:ss`
