@@ -93,16 +93,32 @@ bool NTPClient::forceUpdate() {
   this->sendNTPPacket();
   this->_packetSent = true;
 
-  // Wait till data is there or timeout...
-  byte timeout = 0;
+  // Wait 500ms till data is there or timeout...
+  unsigned long ts_start = millis();
+  unsigned long ts_end = ts_start;
   int cb = 0;
-  do {
-    if (timeout++ > 100) return false; // timeout after 1000 ms
-    delay ( 10 );
+  while ((ts_end - ts_start) < 500) {
     cb = this->_udp->parsePacket();
-  } while (cb == 0);
+    if (cb != 0)
+      break;
+    yield();
+    ts_end = millis();
+  }
 
-  this->_lastUpdate = millis() - (5 * timeout); // Account for delay in reading the time
+  if (cb <= 0) // no data, error or timed out
+    return false;
+
+  if (cb != NTP_PACKET_SIZE) {
+    // unexpected packet size
+    this->_udp->flush();
+    return false;
+  }
+
+  // Use half the time taken to get the update;; if we assume
+  // symmetric latency, it would be roughly correct.
+  // Ideally we'd do the proper two-NTP query thing and
+  // subtract the rx/tx times to work this out really correctly.
+  this->_lastUpdate = ts_start + ((ts_end - ts_start) / 2);
 
   this->_udp->read(this->_packetBuffer, NTP_PACKET_SIZE);
 
