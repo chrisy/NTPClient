@@ -25,6 +25,8 @@ class NTPClient {
     unsigned long _lastUpdate     = 0;      // In ms
     unsigned long _fracOffset     = 0;      // In ms
 
+    bool          _packetSent     = false;
+
     byte          _packetBuffer[NTP_PACKET_SIZE];
 
     void          sendNTPPacket();
@@ -102,6 +104,17 @@ class NTPClient {
      * @return time in seconds since Jan. 1, 1970
      */
     unsigned long getEpochTime() const;
+
+    /** If we track the fractional part of the NTP resopnse, return the offset
+     * in milliseconds.
+     */
+    unsigned long getFractionalOffset() const;
+
+    /** Whether an NTP packet was send since the last time @c update was called.
+     * Can be used to disambiguate whether the @c false return from @c update was
+     * because it was not yet time, or because no response was received.
+     */
+    bool getPacketSent() const;
 
     /**
      * Stops the underlying UDP client

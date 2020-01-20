@@ -91,18 +91,18 @@ bool NTPClient::forceUpdate() {
     this->_udp->flush();
 
   this->sendNTPPacket();
+  this->_packetSent = true;
 
   // Wait till data is there or timeout...
   byte timeout = 0;
   int cb = 0;
   do {
+    if (timeout++ > 100) return false; // timeout after 1000 ms
     delay ( 10 );
     cb = this->_udp->parsePacket();
-    if (timeout > 100) return false; // timeout after 1000 ms
-    timeout++;
   } while (cb == 0);
 
-  this->_lastUpdate = millis() - (10 * (timeout + 1)); // Account for delay in reading the time
+  this->_lastUpdate = millis() - (5 * timeout); // Account for delay in reading the time
 
   this->_udp->read(this->_packetBuffer, NTP_PACKET_SIZE);
 
@@ -112,6 +112,8 @@ bool NTPClient::forceUpdate() {
   // this is NTP time (seconds since Jan 1 1900):
   unsigned long secsSince1900 = highWord << 16 | lowWord;
 
+  this->_currentEpoc = secsSince1900 - SEVENZYYEARS;
+
   if (this->_fractionalTime) {
     highWord = word(this->_packetBuffer[44], this->_packetBuffer[45]);
     lowWord = word(this->_packetBuffer[46], this->_packetBuffer[47]);
@@ -120,11 +122,7 @@ bool NTPClient::forceUpdate() {
 
     // Convert the fractional part into ms
     this->_fracOffset = (unsigned long)(((double)fracSecs / 4294967295.0) * 1000.0);
-  } else {
-    this->_fracOffset = 0;
   }
-
-  this->_currentEpoc = secsSince1900 - SEVENZYYEARS;
 
   return true;  // return true after successful update
 }
@@ -135,6 +133,7 @@ bool NTPClient::update() {
     if (!this->_udpSetup) this->begin();                         // setup the UDP client if needed
     return this->forceUpdate();
   }
+  this->_packetSent = false;
   return false;   // return false if update does not occur
 }
 
@@ -171,6 +170,14 @@ String NTPClient::getFormattedTime() const {
   return hoursStr + ":" + minuteStr + ":" + secondStr;
 }
 
+unsigned long NTPClient::getFractionalOffset() const {
+  return this->_fracOffset;
+}
+
+bool NTPClient::getPacketSent() const {
+  return this->_packetSent;
+}
+
 void NTPClient::end() {
   this->_udp->stop();
 
@@ -187,6 +194,9 @@ void NTPClient::setUpdateInterval(unsigned long updateInterval) {
 
 void NTPClient::setFractionalTime(bool enable) {
   this->_fractionalTime = enable;
+  if (!enable) {
+    this->_fracOffset = 0;
+  }
 }
 
 void NTPClient::setPoolServerName(const char* poolServerName) {
